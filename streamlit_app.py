@@ -46,7 +46,7 @@ st.markdown("""
     /* Race Card Styling */
     .race-card {
         background-color: white;
-        color: white;
+        color: black;
         padding: 5px;
         border-radius: 8px;
         border-left: 5px solid #00277c;
