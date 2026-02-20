@@ -1,5 +1,23 @@
 import streamlit as st
 import pandas as pd
+import gspread
+from google.oauth2.service_account import Credentials
+
+@st.cache_resource
+def get_google_sheets_connection():
+    """Connect to Google Sheets using service account"""
+    scope = ['https://www.googleapis.com/auth/spreadsheets']
+    creds = Credentials.from_service_account_info(st.secrets, scopes=scope)
+    client = gspread.authorize(creds)
+    return client
+
+
+
+
+
+
+
+
 
 # --- PAGE CONFIG ---
 st.set_page_config(page_title="Cheltenham 2026 Tipping", layout="wide")
