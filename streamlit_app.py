@@ -1,4 +1,5 @@
 import streamlit as st
+import pandas as pd
 
 # --- PAGE CONFIG ---
 st.set_page_config(page_title="Cheltenham 2026 Tipping", layout="wide")
@@ -72,60 +73,70 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- HEADER SECTION ---
-st.markdown('<div class="main-header"><h1>🏇 CHELTENHAM FESTIVAL 2026</h1><p>The Official Tipping Competition</p></div>', unsafe_allow_html=True)
+# --- LOAD DATA ---
+@st.cache_data
+def load_race_data():
+    # Replace 'races.csv' with your actual filename
+    # Structure: ID, DAY, RACE_NUMBER, RACE_NAME
+    df = pd.read_csv('races.csv')
+    return df
 
-# Placeholder image (Replace with your local path or a valid URL)
-st.image("https://images.live.dazn.com/www/Sport/24b6139c-720c-4318-80f2-51978280f555.jpg", use_container_width=True)
+try:
+    df_races = load_race_data()
+except:
+    # Fallback dummy data so you can run the code immediately
+    data = {
+        'DAY': ['Tuesday']*3 + ['Wednesday']*3,
+        'RACE_NUMBER': [1, 2, 3, 1, 2, 3],
+        'RACE_NAME': ['Supreme Novices', 'Arkle Chase', 'Ultima Handicap', 'Ballymore Novices', 'Brown Advisory', 'Coral Cup']
+    }
+    df_races = pd.DataFrame(data)
 
-# --- MOCK DATA ---
-dummy_horses = ["Constitution Hill", "State Man", "Galopin Des Champs", "El Fabiolo", "Lossiemouth", "Ballyburn"]
+# --- HEADER ---
+st.markdown('<div class="main-header"><h1>🏇 CHELTENHAM 2026</h1></div>', unsafe_allow_html=True)
 
-# --- APP LAYOUT ---
-tabs = st.tabs(["TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"])
+# --- DYNAMIC FORM GENERATION ---
+days = ["Tuesday", "Wednesday", "Thursday", "Friday"]
+tabs = st.tabs(days)
 
-# Store selections in a dict
-final_selections = {}
-
-for i, day in enumerate(["Tuesday", "Wednesday", "Thursday", "Friday"]):
+for i, day in enumerate(days):
     with tabs[i]:
-        st.subheader(f"📅 {day} Selections")
+        # Filter the CSV for just this day
+        day_races = df_races[df_races['DAY'] == day].sort_values('RACE_NUMBER')
         
-        # Grid Layout for Races
+        if day_races.empty:
+            st.info(f"No race data found for {day} in the CSV.")
+            continue
+
+        # Split into two columns for the "Betting Card" look
         col1, col2 = st.columns(2)
         
-        for race_num in range(1, 8):
-            target_col = col1 if race_num % 2 != 0 else col2
+        for index, row in day_races.iterrows():
+            # Alternate columns
+            target_col = col1 if row['RACE_NUMBER'] % 2 != 0 else col2
             
             with target_col:
-                st.markdown(f'<div class="race-card"><b>Race {race_num}</b></div>', unsafe_allow_html=True)
-                pick = st.selectbox(
-                    f"Select Horse - Race {race_num}", 
-                    options=["-- Select Runner --"] + dummy_horses,
+                st.markdown(f"""
+                    <div class="race-card">
+                        <span style="color: #e71312; font-weight: bold;">Race {row['RACE_NUMBER']}</span><br>
+                        <b>{row['RACE_NAME']}</b>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+                # The dropdown for this specific race
+                st.selectbox(
+                    f"Select for {row['RACE_NAME']}",
+                    options=["-- Select Runner --", "Horse A", "Horse B", "Horse C"],
                     label_visibility="collapsed",
-                    key=f"{day}_r{race_num}"
+                    key=f"pick_{day}_{row['RACE_NUMBER']}"
                 )
-        
-        st.markdown("---")
-        # Bonus Selection (Golden Ticket Style)
-        st.markdown('<div class="race-card" style="border-left: 5px solid #e71312;"><b>🌟 DAILY BONUS PICK (2x Points)</b></div>', unsafe_allow_html=True)
-        st.selectbox(
-            "Bonus Pick", 
-            options=["-- Select Runner --"] + dummy_horses,
-            label_visibility="collapsed",
-            key=f"{day}_bonus"
-        )
 
-# --- FOOTER & SUBMIT ---
+        # Add the Bonus Pick at the bottom of each tab
+        st.markdown('<div class="race-card" style="border-left: 5px solid #e71312;"><b>🌟 DAILY BONUS PICK</b></div>', unsafe_allow_html=True)
+        st.selectbox("Bonus", ["-- Select Runner --", "Horse A", "Horse B"], label_visibility="collapsed", key=f"bonus_{day}")
+
+# --- SUBMIT ---
 st.write("##")
-with st.container():
-    st.markdown('<div class="race-card">', unsafe_allow_html=True)
-    user_name = st.text_input("Competitor Name", placeholder="e.g. JohnSmith_99")
-    st.markdown('</div>', unsafe_allow_html=True)
-
-if st.button("LOCK IN TIPS"):
-    if user_name:
-        st.success(f"Entries received for {user_name}! Good luck at the Festival.")
-        st.balloons()
-    else:
-        st.error("Please enter a name before locking in your tips.")
+user_name = st.text_input("Enter Name to Lock In Tips")
+if st.button("SUBMIT ENTRIES"):
+    st.success("Taps saved locally!")
