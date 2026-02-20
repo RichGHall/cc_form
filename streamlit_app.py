@@ -1,111 +1,131 @@
 import streamlit as st
-import pandas as pd
-from streamlit_gsheets import GSheetsConnection
 
 # --- PAGE CONFIG ---
-st.set_page_config(page_title="Cheltenham Tipping 2026", layout="wide")
+st.set_page_config(page_title="Cheltenham 2026 Tipping", layout="wide")
 
-# --- CUSTOM CSS FOR SKY BET LOOK ---
+# --- CUSTOM CSS (THE "SKY BET" LOOK) ---
 st.markdown("""
     <style>
-    /* Main background */
+    /* Main Background */
     .stApp {
-        background-color: #f2f2f2;
+        background-color: #f0f2f5;
     }
-    /* Style the tabs to look more like a betting app */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 10px;
+    
+    /* Header Styling */
+    .main-header {
         background-color: #00277c;
-        padding: 10px;
-        border-radius: 5px;
+        padding: 20px;
+        border-radius: 10px;
+        color: white;
+        text-align: center;
+        margin-bottom: 20px;
+        border-bottom: 5px solid #e71312;
+    }
+
+    /* Tab Styling */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+        background-color: #00277c;
+        padding: 8px 8px 0px 8px;
+        border-radius: 5px 5px 0px 0px;
     }
     .stTabs [data-baseweb="tab"] {
+        height: 50px;
+        background-color: transparent;
         color: white !important;
         font-weight: bold;
+        border-radius: 5px 5px 0px 0px;
     }
     .stTabs [aria-selected="true"] {
+        background-color: #f0f2f5 !important;
+        color: #00277c !important;
         border-bottom: 4px solid #e71312 !important;
     }
-    /* Buttons */
+
+    /* Race Card Styling */
+    .race-card {
+        background-color: white;
+        padding: 15px;
+        border-radius: 8px;
+        border-left: 5px solid #00277c;
+        margin-bottom: 10px;
+        box-shadow: 0px 2px 4px rgba(0,0,0,0.05);
+    }
+
+    /* Submit Button */
     div.stButton > button:first-child {
         background-color: #e71312;
         color: white;
         border: none;
-        width: 100%;
+        padding: 15px 30px;
+        font-size: 20px;
         font-weight: bold;
+        width: 100%;
+        border-radius: 8px;
+        transition: 0.3s;
+    }
+    div.stButton > button:first-child:hover {
+        background-color: #c41010;
+        border: none;
+        color: white;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --- HEADER IMAGE ---
-# Replace the URL below with your Cheltenham banner image
+# --- HEADER SECTION ---
+st.markdown('<div class="main-header"><h1>🏇 CHELTENHAM FESTIVAL 2026</h1><p>The Official Tipping Competition</p></div>', unsafe_allow_html=True)
+
+# Placeholder image (Replace with your local path or a valid URL)
 st.image("https://images.live.dazn.com/www/Sport/24b6139c-720c-4318-80f2-51978280f555.jpg", use_container_width=True)
 
-st.title("🏇 Cheltenham Festival Tipping")
+# --- MOCK DATA ---
+dummy_horses = ["Constitution Hill", "State Man", "Galopin Des Champs", "El Fabiolo", "Lossiemouth", "Ballyburn"]
 
-# --- DATA CONNECTION ---
-conn = st.connection("gsheets", type=GSheetsConnection)
-# Assuming your sheet has columns 'Race' and 'Horse'
-df_horses = conn.read(worksheet="HorseList") 
+# --- APP LAYOUT ---
+tabs = st.tabs(["TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"])
 
-# --- FORM SETUP ---
-days = ["Tuesday", "Wednesday", "Thursday", "Friday"]
-tabs = st.tabs(days)
+# Store selections in a dict
+final_selections = {}
 
-all_picks = {}
-
-for i, day in enumerate(days):
+for i, day in enumerate(["Tuesday", "Wednesday", "Thursday", "Friday"]):
     with tabs[i]:
-        st.header(f"{day} Runners")
-        day_picks = {}
+        st.subheader(f"📅 {day} Selections")
         
-        # Create 7 Race Dropdowns + 1 Bonus
+        # Grid Layout for Races
         col1, col2 = st.columns(2)
         
         for race_num in range(1, 8):
-            # Select column based on odd/even for a clean 2-column layout
             target_col = col1 if race_num % 2 != 0 else col2
             
-            # Filter horses for specific race (Assumes sheet has a 'RaceNumber' or 'Day' column)
-            horse_options = df_horses[df_horses['Day'] == day]['Horse'].tolist()
-            
-            day_picks[f"Race {race_num}"] = target_col.selectbox(
-                f"Race {race_num} Selection", 
-                options=["Select a Horse..."] + horse_options,
-                key=f"{day}_r{race_num}"
-            )
+            with target_col:
+                st.markdown(f'<div class="race-card"><b>Race {race_num}</b></div>', unsafe_allow_html=True)
+                pick = st.selectbox(
+                    f"Select Horse - Race {race_num}", 
+                    options=["-- Select Runner --"] + dummy_horses,
+                    label_visibility="collapsed",
+                    key=f"{day}_r{race_num}"
+                )
         
-        # Bonus Pick
-        st.divider()
-        day_picks["Bonus Pick"] = st.selectbox(
-            "🌟 Daily Bonus Pick (Double Points)", 
-            options=["Select a Horse..."] + horse_options,
+        st.markdown("---")
+        # Bonus Selection (Golden Ticket Style)
+        st.markdown('<div class="race-card" style="border-left: 5px solid #e71312;"><b>🌟 DAILY BONUS PICK (2x Points)</b></div>', unsafe_allow_html=True)
+        st.selectbox(
+            "Bonus Pick", 
+            options=["-- Select Runner --"] + dummy_horses,
+            label_visibility="collapsed",
             key=f"{day}_bonus"
         )
-        
-        all_picks[day] = day_picks
 
-# --- SUBMISSION ---
-st.divider()
-with st.expander("Confirm User Details"):
-    user_name = st.text_input("Enter Your Name / Alias")
+# --- FOOTER & SUBMIT ---
+st.write("##")
+with st.container():
+    st.markdown('<div class="race-card">', unsafe_allow_html=True)
+    user_name = st.text_input("Competitor Name", placeholder="e.g. JohnSmith_99")
+    st.markdown('</div>', unsafe_allow_html=True)
 
-if st.button("Submit My Tips"):
-    if not user_name:
-        st.error("Please enter your name before submitting.")
-    else:
-        # Structure data for Google Sheets
-        # We flatten the dictionary to a single row
-        submission_data = {"User": user_name}
-        for day, picks in all_picks.items():
-            for race, horse in picks.items():
-                submission_data[f"{day}_{race}"] = horse
-        
-        # Append to your Results sheet
-        existing_results = conn.read(worksheet="Results")
-        new_row = pd.DataFrame([submission_data])
-        updated_results = pd.concat([existing_results, new_row], ignore_index=True)
-        
-        conn.update(worksheet="Results", data=updated_results)
-        st.success(f"Good luck, {user_name}! Your tips have been logged.")
+if st.button("LOCK IN TIPS"):
+    if user_name:
+        st.success(f"Entries received for {user_name}! Good luck at the Festival.")
         st.balloons()
+    else:
+        st.error("Please enter a name before locking in your tips.")
