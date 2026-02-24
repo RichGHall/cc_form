@@ -4,12 +4,22 @@ import gspread
 from google.oauth2.service_account import Credentials
 
 # --- GOOGLE SHEETS CONNECTION ---
+
 @st.cache_resource
 def get_google_sheets_connection():
-    scope = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
+    """Connect to Google Sheets using service account"""
+    # Explicitly include both Sheets and Drive scopes
+    scope = [
+        'https://www.googleapis.com/auth/spreadsheets',
+        'https://www.googleapis.com/auth/drive'
+    ]
     creds = Credentials.from_service_account_info(st.secrets, scopes=scope)
     client = gspread.authorize(creds)
     return client
+
+
+
+
 
 @st.cache_data(ttl=600)
 def load_runners_from_sheet():
