@@ -229,16 +229,35 @@ with st.expander("👁️ View My Submitted Picks"):
         try:
             client = get_google_sheets_connection()
             sh = client.open("Cheltenham_v2")
-            raw_picks = sh.worksheet("rPicks").get_all_values()
-            df_hist = pd.DataFrame(raw_picks[1:], columns=raw_picks[0])
-            user_view = df_hist[(df_hist['Name'] == auth_name) & (df_hist['Year'] == str(datetime.datetime.now().year))]
+            raw_data = sh.worksheet("rPicks").get_all_values()
+            
+            # Create DataFrame and Clean Headers
+            df_hist = pd.DataFrame(raw_data[1:], columns=raw_data[0])
+            df_hist.columns = df_hist.columns.str.strip() # Remove hidden spaces
+            
+            # 1. Filter by Name (Case-insensitive check)
+            user_view = df_hist[df_hist['Name'].str.lower() == auth_name.lower()]
+            
+            # 2. Filter by Year (Forcing both to string to avoid 2026 vs "2026" errors)
+            current_yr_str = str(datetime.datetime.now().year)
+            # Find the year column regardless of casing (Year vs year)
+            year_col = [c for c in df_hist.columns if c.lower() == 'year'][0]
+            user_view = user_view[user_view[year_col].astype(str) == current_yr_str]
+            
             if not user_view.empty:
+                # Convert Timestamp to actual date objects for sorting
                 user_view['Timestamp'] = pd.to_datetime(user_view['Timestamp'])
-                # Deduplicate: Show only the most recent pick per Race_ID
-                latest_picks = user_view.sort_values('Timestamp').groupby('Race_ID').tail(1)
-                st.table(latest_picks[['Race_ID', 'Pick', 'Timestamp']].sort_values('Race_ID'))
+                
+                # Deduplicate: Get the latest entry for each Race_ID
+                # Ensure we use the exact column name for 'Race_ID' from your sheet
+                rid_col = 'Race_ID' if 'Race_ID' in user_view.columns else 'ID'
+                
+                latest_picks = user_view.sort_values('Timestamp').groupby(rid_col).tail(1)
+                
+                # Display a clean table
+                st.table(latest_picks[[rid_col, 'Pick', 'Timestamp']].sort_values(rid_col))
             else:
-                st.write("No picks found for this season.")
-        except:
-            st.write("Validation required to load history.")
+                st.info(f"No picks found in rPicks for {auth_name} in {current_yr_str}.")
+        except Exception as e:
+            st.error(f"Could not load history: {e}")
                         
