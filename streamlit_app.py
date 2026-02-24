@@ -3,159 +3,159 @@ import pandas as pd
 import gspread
 from google.oauth2.service_account import Credentials
 
+# --- GOOGLE SHEETS CONNECTION ---
 @st.cache_resource
 def get_google_sheets_connection():
-    """Connect to Google Sheets using service account"""
-    scope = ['https://www.googleapis.com/auth/spreadsheets']
+    scope = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
     creds = Credentials.from_service_account_info(st.secrets, scopes=scope)
     client = gspread.authorize(creds)
     return client
 
+@st.cache_data(ttl=600)
+def load_runners_from_sheet():
+    """Fetches runners from rRunners tab (Row 1 = IDs, Row 5+ = Names)"""
+    try:
+        client = get_google_sheets_connection()
+        sh = client.open("Cheltenham_v2")
+        worksheet = sh.worksheet("rRunners")
+        data = worksheet.get_all_values()
+        
+        race_ids = data[0] # e.g., d1r1, d1r2
+        runners_map = {}
 
+        for col_idx, rid in enumerate(race_ids):
+            if rid.strip():
+                # Extract from row 5 (index 4) downwards
+                runners = [row[col_idx] for row in data[4:] if len(row) > col_idx and row[col_idx].strip()]
+                runners_map[rid.lower().strip()] = ["-- Select Runner --"] + runners
+        return runners_map
+    except Exception as e:
+        st.error(f"Error loading runners from Google Sheets: {e}")
+        return {}
 
+@st.cache_data
+def load_race_schedule():
+    """Loads the official race names and order from CSV"""
+    try:
+        df = pd.read_csv('races.csv')
+        return df
+    except Exception as e:
+        st.error(f"Error loading races.csv: {e}")
+        # Fallback empty dataframe with correct columns
+        return pd.DataFrame(columns=['DAY', 'RACE_NUMBER', 'RACE_NAME'])
 
-
-
-
-
-
-# --- PAGE CONFIG ---
+# --- PAGE CONFIG & CSS ---
 st.set_page_config(page_title="Cheltenham 2026 Tipping", layout="wide")
 
-# --- CUSTOM CSS (THE "SKY BET" LOOK) ---
 st.markdown("""
     <style>
-    /* Main Background */
-    .stApp {
-        background-color: #f0f2f5;
-    }
-    
-    /* Header Styling */
+    .stApp { background-color: #f0f2f5; }
     .main-header {
-        background-color: #00277c;
-        padding: 20px;
-        border-radius: 10px;
-        color: white;
-        text-align: center;
-        margin-bottom: 20px;
-        border-bottom: 5px solid #e71312;
+        background-color: #00277c; padding: 20px; border-radius: 10px;
+        color: white; text-align: center; margin-bottom: 20px; border-bottom: 5px solid #e71312;
     }
-
-    /* Tab Styling */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-        background-color: #00277c;
-        padding: 8px 8px 0px 8px;
-        border-radius: 5px 5px 0px 0px;
-    }
-    .stTabs [data-baseweb="tab"] {
-        height: 50px;
-        background-color: transparent;
-        color: white !important;
-        font-weight: bold;
-        border-radius: 5px 5px 0px 0px;
-    }
-    .stTabs [aria-selected="true"] {
-        background-color: #f0f2f5 !important;
-        color: #00277c !important;
-        border-bottom: 4px solid #e71312 !important;
-    }
-
-    /* Race Card Styling */
     .race-card {
-        background-color: white;
-        color: black;
-        padding: 5px;
-        border-radius: 8px;
-        border-left: 5px solid #00277c;
-        margin-bottom: 10px;
+        background-color: white; padding: 12px; border-radius: 8px;
+        border-left: 5px solid #00277c; margin-bottom: 5px;
         box-shadow: 0px 2px 4px rgba(0,0,0,0.05);
     }
-
-    /* Submit Button */
+    .stTabs [data-baseweb="tab-list"] { background-color: #00277c; padding: 8px 8px 0px 8px; }
+    .stTabs [data-baseweb="tab"] { color: white !important; font-weight: bold; }
+    .stTabs [aria-selected="true"] { background-color: #f0f2f5 !important; color: #00277c !important; }
     div.stButton > button:first-child {
-        background-color: #e71312;
-        color: white;
-        border: none;
-        padding: 15px 30px;
-        font-size: 20px;
-        font-weight: bold;
-        width: 100%;
-        border-radius: 8px;
-        transition: 0.3s;
-    }
-    div.stButton > button:first-child:hover {
-        background-color: #c41010;
-        border: none;
-        color: white;
+        background-color: #e71312; color: white; width: 100%; font-weight: bold; height: 3em; border-radius: 8px;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --- LOAD DATA ---
-@st.cache_data
-def load_race_data():
-    # Replace 'races.csv' with your actual filename
-    # Structure: ID, DAY, RACE_NUMBER, RACE_NAME
-    df = pd.read_csv('races.csv')
-    return df
-
-try:
-    df_races = load_race_data()
-except:
-    # Fallback dummy data so you can run the code immediately
-    data = {
-        'DAY': ['Tuesday']*3 + ['Wednesday']*3,
-        'RACE_NUMBER': [1, 2, 3, 1, 2, 3],
-        'RACE_NAME': ['Supreme Novices', 'Arkle Chase', 'Ultima Handicap', 'Ballymore Novices', 'Brown Advisory', 'Coral Cup']
-    }
-    df_races = pd.DataFrame(data)
+# --- INITIALIZE DATA ---
+df_races = load_race_schedule()
+runners_dict = load_runners_from_sheet()
 
 # --- HEADER ---
-st.markdown('<div class="main-header"><h1>🏇 CHELTENHAM 2026</h1></div>', unsafe_allow_html=True)
+st.markdown('<div class="main-header"><h1>🏇 CHELTENHAM 2026 TIPPING</h1></div>', unsafe_allow_html=True)
 
-# --- DYNAMIC FORM GENERATION ---
+# --- FORM GENERATION ---
 days = ["Tuesday", "Wednesday", "Thursday", "Friday"]
+day_code_map = {"Tuesday": "d1", "Wednesday": "d2", "Thursday": "d3", "Friday": "d4"}
+
 tabs = st.tabs(days)
 
 for i, day in enumerate(days):
     with tabs[i]:
-        # Filter the CSV for just this day
+        # Filter CSV data for the current tab's day
         day_races = df_races[df_races['DAY'] == day].sort_values('RACE_NUMBER')
         
         if day_races.empty:
-            st.info(f"No race data found for {day} in the CSV.")
+            st.warning(f"No races found in CSV for {day}")
             continue
 
-        # Split into two columns for the "Betting Card" look
         col1, col2 = st.columns(2)
         
         for index, row in day_races.iterrows():
-            # Alternate columns
+            # Determine column (Left for odd, Right for even)
             target_col = col1 if row['RACE_NUMBER'] % 2 != 0 else col2
+            
+            # Map CSV row to GSheet ID (e.g., d1r1)
+            race_id = f"{day_code_map[day]}r{row['RACE_NUMBER']}"
+            options = runners_dict.get(race_id, ["-- Runners Not Found --"])
             
             with target_col:
                 st.markdown(f"""
                     <div class="race-card">
                         <span style="color: #e71312; font-weight: bold;">Race {row['RACE_NUMBER']}</span><br>
-                        <b>{row['RACE_NAME']}</b>
+                        <b style="font-size: 1.1em;">{row['RACE_NAME']}</b>
                     </div>
                 """, unsafe_allow_html=True)
                 
-                # The dropdown for this specific race
                 st.selectbox(
-                    f"Select for {row['RACE_NAME']}",
-                    options=["-- Select Runner --", "Horse A", "Horse B", "Horse C"],
+                    f"Pick for {row['RACE_NAME']}",
+                    options=options,
                     label_visibility="collapsed",
-                    key=f"pick_{day}_{row['RACE_NUMBER']}"
+                    key=f"pick_{race_id}"
                 )
 
-        # Add the Bonus Pick at the bottom of each tab
-        st.markdown('<div class="race-card" style="border-left: 5px solid #e71312;"><b>🌟 DAILY BONUS PICK</b></div>', unsafe_allow_html=True)
-        st.selectbox("Bonus", ["-- Select Runner --", "Horse A", "Horse B"], label_visibility="collapsed", key=f"bonus_{day}")
+        # Daily Bonus Pick Section
+        st.markdown(f'<div class="race-card" style="border-left: 5px solid #e71312; margin-top:30px;"><b>🌟 {day.upper()} BONUS NAP</b></div>', unsafe_allow_html=True)
+        
+        # Aggregate all runners for that day into one list for the NAP selection
+        all_day_runners = []
+        for r_num in range(1, 8):
+            rid = f"{day_code_map[day]}r{r_num}"
+            if rid in runners_dict:
+                all_day_runners.extend(runners_dict[rid][1:]) # Skip the placeholder
+        
+        st.selectbox(f"Select your NAP for {day}", 
+                     options=["-- Select Runner --"] + sorted(list(set(all_day_runners))),
+                     label_visibility="collapsed", key=f"nap_{day}")
 
-# --- SUBMIT ---
-st.write("##")
-user_name = st.text_input("Enter Name to Lock In Tips")
-if st.button("SUBMIT ENTRIES"):
-    st.success("Taps saved locally!")
+# --- SUBMISSION LOGIC ---
+st.write("---")
+user_name = st.text_input("Player Name", placeholder="Enter your name to submit...")
+
+if st.button("SUBMIT ALL TIPS"):
+    if not user_name:
+        st.error("Please enter your name.")
+    else:
+        try:
+            client = get_google_sheets_connection()
+            sheet = client.open("Cheltenham_v2").worksheet("Submissions")
+            
+            # Prepare row: [Name, d1r1, d1r2... d4r7, NAP1, NAP2, NAP3, NAP4]
+            submission_row = [user_name]
+            
+            # 1. Add individual race picks
+            for d_code in ["d1", "d2", "d3", "d4"]:
+                for r_num in range(1, 8):
+                    val = st.session_state.get(f"pick_{d_code}r{r_num}", "--")
+                    submission_row.append(val)
+            
+            # 2. Add the 4 NAPs
+            for day in days:
+                submission_row.append(st.session_state.get(f"nap_{day}", "--"))
+
+            sheet.append_row(submission_row)
+            st.balloons()
+            st.success(f"Tips locked in for {user_name}! Good luck!")
+        except Exception as e:
+            st.error(f"Error saving to spreadsheet: {e}")
