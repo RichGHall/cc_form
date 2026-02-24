@@ -1,8 +1,10 @@
 import streamlit as st
 import pandas as pd
 import gspread
+import datetime
 import re
 from google.oauth2.service_account import Credentials
+
 
 # --- 1. GOOGLE SHEETS CONNECTION ---
 @st.cache_resource
@@ -54,20 +56,43 @@ def load_race_schedule():
 st.set_page_config(page_title="Cheltenham 2026 Tipping", layout="wide")
 st.markdown("""
     <style>
+    /* Main App Background */
     .stApp { background-color: #f0f2f5; }
+    
+    /* Header Styling */
     .main-header {
         background-color: #00277c; padding: 20px; border-radius: 10px;
         color: white; text-align: center; margin-bottom: 20px; border-bottom: 5px solid #e71312;
     }
+
+    /* Target all Input Labels (Name, PIN, etc) */
+    .stWidgetLabel p {
+        color: #00277c !important;
+        font-weight: bold !important;
+    }
+
+    /* Race Card Styling */
     .race-card {
         background-color: white; padding: 12px; border-radius: 8px;
         border-left: 5px solid #00277c; margin-bottom: 5px; box-shadow: 0px 2px 4px rgba(0,0,0,0.05);
-        color: navy;
+        color: #333;
     }
+
+    /* Tab Styling */
     .stTabs [data-baseweb="tab-list"] { background-color: #00277c; padding: 8px 8px 0px 8px; border-radius: 5px 5px 0px 0px; }
     .stTabs [data-baseweb="tab"] { color: white !important; font-weight: bold; }
     .stTabs [aria-selected="true"] { background-color: #f0f2f5 !important; color: #00277c !important; border-bottom: 4px solid #e71312 !important; }
-    div.stButton > button { background-color: #e71312; color: white; border-radius: 8px; font-weight: bold; width: 100%; }
+    
+    /* Button Styling */
+    div.stButton > button { 
+        background-color: #e71312; color: white; border-radius: 8px; font-weight: bold; width: 100%; height: 3em;
+    }
+    div.stButton > button:hover { background-color: #c41010; color: white; border: none; }
+    
+    /* Input field borders to make them more visible */
+    div[data-baseweb="input"], div[data-baseweb="select"] {
+        border: 1px solid #ced4da;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -91,6 +116,8 @@ with tabs[0]:
         new_name = st.text_input("Full Name")
         new_email = st.text_input("Email")
         new_pin = st.number_input("Set 4-Digit PIN (No leading 0)", min_value=1000, max_value=9999, step=1, value=None)
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
         reg_submit = st.form_submit_button("REGISTER")
         
         if reg_submit:
@@ -98,7 +125,8 @@ with tabs[0]:
                 try:
                     client = get_google_sheets_connection()
                     sh = client.open("Cheltenham_v2")
-                    sh.worksheet("rEntrants").append_row([new_name, new_email, str(new_pin)])
+                    
+                    sh.worksheet("rEntrants").append_row([new_name, new_email, str(new_pin), now])
                     st.success("Registration Successful! You can now go to the race tabs to tip.")
                     st.cache_data.clear() # Force refresh user list
                 except Exception as e:
