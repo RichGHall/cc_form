@@ -236,6 +236,7 @@ for i, day in enumerate(tab_list[1:], start=1):
                             picks_sheet = sh.worksheet("rPicks")
                             
                             now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                            yr = datetime.datetime.now().year
                             vertical_data = []
                             
                             # 7 Standard Races
@@ -243,11 +244,11 @@ for i, day in enumerate(tab_list[1:], start=1):
                                 rid = f"{d_code}r{r_idx}"
                                 # Grab the actual horse name using the 'pick_' prefix
                                 horse_selection = st.session_state.get(f"pick_{rid}", "No Pick")
-                                vertical_data.append([now, auth_name, auth_pin, rid, horse_selection])
+                                vertical_data.append([now, auth_name, auth_pin, rid, horse_selection,yr])
                             
                             # NAP Row
                             final_nap = st.session_state.get(f"nap_{day}", "No NAP")
-                            vertical_data.append([now, auth_name, auth_pin, f"{d_code}_NAP", final_nap])
+                            vertical_data.append([now, auth_name, auth_pin, f"{d_code}_NAP", final_nap,yr])
                             
                             picks_sheet.append_rows(vertical_data)
                             
