@@ -220,7 +220,7 @@ for i, day in enumerate(tab_list[1:], start=1):
                     try:
                         client = get_google_sheets_connection()
                         sh = client.open("Cheltenham_v2")
-                        results_sheet = sh.worksheet("rResults")
+                        results_sheet = sh.worksheet("rPicks")
                         now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                         
                         vertical_data = []
@@ -234,7 +234,7 @@ for i, day in enumerate(tab_list[1:], start=1):
                         
                         results_sheet.append_rows(vertical_data)
                         st.balloons()
-                        st.success(f"Picks Saved! 8 rows added to rResults for {auth_name}.")
+                        st.success(f"Picks Saved! 8 rows added for {auth_name}.")
                     except Exception as e:
                         st.error(f"Submission Error: {e}")
 
