@@ -62,7 +62,7 @@ st.markdown("""
     /* Header Styling */
     .main-header {
         background-color: #00277c; padding: 20px; border-radius: 10px;
-        color: white; text-align: center; margin-bottom: 20px; border-bottom: 5px solid #e71312;
+        color: Red; text-align: center; margin-bottom: 20px; border-bottom: 5px solid #e71312;
     }
 
     /* Target all Input Labels (Name, PIN, etc) */
