@@ -235,6 +235,10 @@ with st.expander("👁️ View My Submitted Picks"):
             df_hist = pd.DataFrame(raw_data[1:], columns=raw_data[0])
             df_hist.columns = df_hist.columns.str.strip() # Remove hidden spaces
             
+            st.write("Columns found in rPicks:", df_hist.columns.tolist())
+            st.write("Unique names in rPicks:", df_hist['Name'].unique().tolist())
+            
+            
             # 1. Filter by Name (Case-insensitive check)
             user_view = df_hist[df_hist['Name'].str.lower() == auth_name.lower()]
             
