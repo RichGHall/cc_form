@@ -191,7 +191,7 @@ for i, day in enumerate(tab_list[1:], start=1):
         st.selectbox(f"NAP {day}", options=["-- Select EW Bonus --"] + sorted(list(set(all_runners))), label_visibility="collapsed", key=f"nap_{day}")
 
         # Day Submission
-# --- Day Submission Block ---
+
         if st.button(f"SUBMIT {day.upper()} TIPS", key=f"btn_{day}"):
             # 1. Identity Validation
             if auth_name == "-- Select --" or not auth_pin:
@@ -199,50 +199,59 @@ for i, day in enumerate(tab_list[1:], start=1):
             elif user_db.get(auth_name) != auth_pin:
                 st.error("Validation Failed: Incorrect PIN.")
             else:
-                # 2. Race Completion Validation
+                # 2. Check for incomplete races
                 d_code = day_code_map[day]
                 incomplete_races = []
                 
-                # Check 7 standard races
+                # Check standard races
                 for r_idx in range(1, 8):
-                    race_id = f"{d_code}r{r_idx}"
-                    pick = st.session_state.get(f"pick_{race_id}", "-- Select Runner --")
+                    rid = f"{d_code}r{r_idx}"
+                    pick = st.session_state.get(f"pick_{rid}", "-- Select Runner --")
                     if pick == "-- Select Runner --" or not pick:
                         incomplete_races.append(f"Race {r_idx}")
                 
                 # Check NAP
-                nap_pick = st.session_state.get(f"nap_{day}", "-- Select Daily NAP --")
-                if nap_pick == "-- Select Daily NAP --" or not nap_pick:
+                nap_val = st.session_state.get(f"nap_{day}", "-- Select Daily NAP --")
+                if nap_val == "-- Select Daily NAP --":
                     incomplete_races.append("Daily NAP")
 
-                # 3. Decision Tree: Submit or Warn?
-                def proceed_with_upload():
+                # 3. Execution Logic
+                # We check if we need a bypass, otherwise we proceed
+                should_upload = False
+                if incomplete_races:
+                    st.warning(f"⚠️ You have not selected runners for: {', '.join(incomplete_races)}.")
+                    # Note: In some Streamlit versions, nested interactions inside buttons 
+                    # can be tricky. If this checkbox feels "laggy", we can move it outside the button.
+                    if st.checkbox("I want to submit anyway (e.g. for Non-Runners)", key=f"bypass_{day}"):
+                        should_upload = True
+                else:
+                    should_upload = True
+
+                if should_upload:
                     try:
-                        client = get_google_sheets_connection()
-                        sh = client.open("Cheltenham_v2")
-                        results_sheet = sh.worksheet("rPicks")
-                        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        
-                        vertical_data = []
-                        for r_idx in range(1, 8):
-                            rid = f"{d_code}r{r_idx}"
-                            p = st.session_state.get(rid, "No Pick")
-                            vertical_data.append([now, auth_name, auth_pin, rid, p])
-                        
-                        nap = st.session_state.get(f"nap_{day}", "No NAP")
-                        vertical_data.append([now, auth_name, auth_pin, f"{d_code}_NAP", nap])
-                        
-                        results_sheet.append_rows(vertical_data)
-                        st.balloons()
-                        st.success(f"Picks Saved! 8 rows added for {auth_name}.")
+                        with st.spinner(f"Uploading to rPicks..."):
+                            client = get_google_sheets_connection()
+                            sh = client.open("Cheltenham_v2")
+                            # UPDATED TAB NAME HERE
+                            picks_sheet = sh.worksheet("rPicks")
+                            
+                            now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                            vertical_data = []
+                            
+                            # 7 Standard Races
+                            for r_idx in range(1, 8):
+                                rid = f"{d_code}r{r_idx}"
+                                # Grab the actual horse name using the 'pick_' prefix
+                                horse_selection = st.session_state.get(f"pick_{rid}", "No Pick")
+                                vertical_data.append([now, auth_name, auth_pin, rid, horse_selection])
+                            
+                            # NAP Row
+                            final_nap = st.session_state.get(f"nap_{day}", "No NAP")
+                            vertical_data.append([now, auth_name, auth_pin, f"{d_code}_NAP", final_nap])
+                            
+                            picks_sheet.append_rows(vertical_data)
+                            
+                            st.balloons()
+                            st.success(f"Success! 8 rows added to rPicks for {auth_name}.")
                     except Exception as e:
                         st.error(f"Submission Error: {e}")
-
-                if incomplete_races:
-                    st.warning(f"⚠️ You haven't selected runners for: {', '.join(incomplete_races)}.")
-                    # We use a unique key for the bypass to ensure it works within the loop
-                    if st.checkbox("I am aware some races are empty (e.g. for Non-Runners) and wish to submit anyway", key=f"bypass_{day}"):
-                        proceed_with_upload()
-                else:
-                    # All races filled, proceed immediately
-                    proceed_with_upload()
