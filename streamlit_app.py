@@ -11,6 +11,19 @@ def get_google_sheets_connection():
     creds = Credentials.from_service_account_info(st.secrets, scopes=scope)
     return gspread.authorize(creds)
 
+@st.cache_data(ttl=60) # Short TTL so new registrations show up quickly
+def get_registered_users():
+    """Fetches Name and PIN from rEntrants for validation"""
+    try:
+        client = get_google_sheets_connection()
+        sh = client.open("Cheltenham_v2")
+        sheet = sh.worksheet("rEntrants")
+        data = sheet.get_all_values()
+        # Create dict: { "Name": "PIN" } - skipping header row
+        return {row[0]: str(row[2]) for row in data[1:] if len(row) >= 3}
+    except:
+        return {}
+
 @st.cache_data(ttl=600)
 def load_runners_from_sheet():
     try:
@@ -34,8 +47,7 @@ def load_runners_from_sheet():
 def load_race_schedule():
     try:
         return pd.read_csv('races.csv')
-    except Exception as e:
-        st.error(f"Error loading races.csv: {e}")
+    except:
         return pd.DataFrame(columns=['DAY', 'RACE_NUMBER', 'RACE_NAME'])
 
 # --- 2. PAGE CONFIG & CSS ---
@@ -54,45 +66,62 @@ st.markdown("""
     .stTabs [data-baseweb="tab-list"] { background-color: #00277c; padding: 8px 8px 0px 8px; border-radius: 5px 5px 0px 0px; }
     .stTabs [data-baseweb="tab"] { color: white !important; font-weight: bold; }
     .stTabs [aria-selected="true"] { background-color: #f0f2f5 !important; color: #00277c !important; border-bottom: 4px solid #e71312 !important; }
-    
-    /* Submit Button Styling */
-    div.stButton > button {
-        background-color: #e71312; color: white; border: none; padding: 12px;
-        font-size: 18px; font-weight: bold; width: 100%; border-radius: 8px; margin-top: 10px;
-    }
-    div.stButton > button:hover { background-color: #c41010; color: white; }
+    div.stButton > button { background-color: #e71312; color: white; border-radius: 8px; font-weight: bold; width: 100%; }
     </style>
     """, unsafe_allow_html=True)
 
 # --- 3. INITIALIZE DATA ---
 df_races = load_race_schedule()
 runners_dict = load_runners_from_sheet()
+user_db = get_registered_users() # Loaded from rEntrants
 day_code_map = {"Tuesday": "d1", "Wednesday": "d2", "Thursday": "d3", "Friday": "d4"}
 
 # --- 4. HEADER ---
 st.markdown('<div class="main-header"><h1>🏇 CHELTENHAM 2026 TIPPING</h1></div>', unsafe_allow_html=True)
 
 # --- 5. TABS ---
-tab_list = ["Entry Form", "Tuesday", "Wednesday", "Thursday", "Friday"]
+tab_list = ["New Registration", "Tuesday", "Wednesday", "Thursday", "Friday"]
 tabs = st.tabs(tab_list)
 
-# GLOBAL FORM DATA (Available across all tabs)
+# --- TAB 0: NEW REGISTRATION ---
 with tabs[0]:
-    st.subheader("📋 Step 1: Your Details")
-    st.info("Fill this out first, then head to the day's tab to submit your picks.")
-    p_name = st.text_input("Full Name *", key="global_name")
-    p_email = st.text_input("Email Address *", key="global_email")
-    p_pin = st.number_input("4-Digit PIN *", min_value=1000, max_value=9999, step=1, value=None, key="global_pin")
+    st.subheader("📝 Registration (One-time Only)")
+    with st.form("registration_form"):
+        new_name = st.text_input("Full Name")
+        new_email = st.text_input("Email")
+        new_pin = st.number_input("Set 4-Digit PIN (No leading 0)", min_value=1000, max_value=9999, step=1, value=None)
+        reg_submit = st.form_submit_button("REGISTER")
+        
+        if reg_submit:
+            if new_name and new_email and new_pin:
+                try:
+                    client = get_google_sheets_connection()
+                    sh = client.open("Cheltenham_v2")
+                    sh.worksheet("rEntrants").append_row([new_name, new_email, str(new_pin)])
+                    st.success("Registration Successful! You can now go to the race tabs to tip.")
+                    st.cache_data.clear() # Force refresh user list
+                except Exception as e:
+                    st.error(f"Error: {e}")
+            else:
+                st.warning("All fields are mandatory.")
 
-# --- DAY TABS ---
+# --- TABS 1-4: RACE DAYS ---
 for i, day in enumerate(tab_list[1:], start=1):
     with tabs[i]:
-        st.subheader(f"📅 {day} Picks")
+        st.subheader(f"📅 {day} Tips")
         
+        # Identity Verification for this day
+        col_id1, col_id2 = st.columns(2)
+        with col_id1:
+            auth_name = st.selectbox("Select Your Name", options=["-- Select --"] + sorted(list(user_db.keys())), key=f"auth_name_{day}")
+        with col_id2:
+            auth_pin = st.text_input("Enter your PIN", type="password", key=f"auth_pin_{day}")
+
+        st.divider()
+        
+        # Display Races
         day_races = df_races[df_races['DAY'] == day].sort_values('RACE_NUMBER')
         r_list = day_races.to_dict('records')
-
-        # Race Grid
         for j in range(0, len(r_list), 2):
             cols = st.columns(2)
             for k in range(2):
@@ -112,41 +141,27 @@ for i, day in enumerate(tab_list[1:], start=1):
                 all_runners.extend(runners_dict[rid_key][1:])
         st.selectbox(f"NAP {day}", options=["-- Select Daily NAP --"] + sorted(list(set(all_runners))), label_visibility="collapsed", key=f"nap_{day}")
 
-        # --- INDIVIDUAL SUBMIT BUTTON PER DAY ---
-        st.write("---")
-        if st.button(f"SUBMIT {day.upper()} ENTRIES", key=f"btn_{day}"):
-            email_regex = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
-            
-            # Validation
-            if not p_name or not p_email or p_pin is None:
-                st.error("Error: Please complete your details in the 'Entry Form' tab first.")
-            elif not re.match(email_regex, p_email):
-                st.error("Error: Invalid email format.")
+        # Day Submission
+        if st.button(f"SUBMIT {day.upper()} TIPS", key=f"btn_{day}"):
+            # VALIDATION: Check Name and PIN against user_db
+            if auth_name == "-- Select --" or not auth_pin:
+                st.error("Please select your name and enter your PIN.")
+            elif user_db.get(auth_name) != auth_pin:
+                st.error("Validation Failed: Incorrect PIN for this user.")
             else:
                 try:
                     client = get_google_sheets_connection()
                     sh = client.open("Cheltenham_v2")
-                    
-                    # 1. Update rEntrants
-                    entrants_sheet = sh.worksheet("rEntrants")
-                    entrants_sheet.append_row([p_name, p_email, str(p_pin)])
-                    
-                    # 2. Update Submissions (Specific to this Day)
                     tips_sheet = sh.worksheet("Submissions")
                     
-                    # Row Format: [Name, Date/Day, Race1, Race2, Race3, Race4, Race5, Race6, Race7, NAP]
                     d_code = day_code_map[day]
-                    daily_picks = [p_name, day] # Identity
-                    
+                    daily_row = [auth_name, day]
                     for r_idx in range(1, 8):
-                        val = st.session_state.get(f"pick_{d_code}r{r_idx}", "No Pick")
-                        daily_picks.append(val)
+                        daily_row.append(st.session_state.get(f"pick_{d_code}r{r_idx}", "No Pick"))
+                    daily_row.append(st.session_state.get(f"nap_{day}", "No NAP"))
                     
-                    daily_picks.append(st.session_state.get(f"nap_{day}", "No NAP"))
-                    
-                    tips_sheet.append_row(daily_picks)
-                    
+                    tips_sheet.append_row(daily_row)
                     st.balloons()
-                    st.success(f"Success! {day} picks locked in for {p_name}.")
+                    st.success(f"Success! {day} picks saved for {auth_name}.")
                 except Exception as e:
-                    st.error(f"Submission Error: {e}")
+                    st.error(f"Error saving: {e}")
