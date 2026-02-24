@@ -116,7 +116,7 @@ with tabs[0]:
         new_name = st.text_input("Full Name")
         new_email = st.text_input("Email")
         new_pin = st.number_input("Set 4-Digit PIN (No leading 0)", min_value=1000, max_value=9999, step=1, value=None)
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
         reg_submit = st.form_submit_button("REGISTER")
         
