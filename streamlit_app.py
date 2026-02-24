@@ -68,6 +68,7 @@ st.markdown("""
         background-color: white; padding: 12px; border-radius: 8px;
         border-left: 5px solid #00277c; margin-bottom: 5px;
         box-shadow: 0px 2px 4px rgba(0,0,0,0.05);
+        color: navy;
     }
     .stTabs [data-baseweb="tab-list"] { background-color: #00277c; padding: 8px 8px 0px 8px; }
     .stTabs [data-baseweb="tab"] { color: white !important; font-weight: bold; }
