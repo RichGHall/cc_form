@@ -13,18 +13,38 @@ def get_google_sheets_connection():
     creds = Credentials.from_service_account_info(st.secrets, scopes=scope)
     return gspread.authorize(creds)
 
-@st.cache_data(ttl=60) # Short TTL so new registrations show up quickly
+   
+@st.cache_data(ttl=60)
 def get_registered_users():
-    """Fetches Name and PIN from rEntrants for validation"""
+    """Fetches Name and PIN, filtering for current year timestamps"""
     try:
         client = get_google_sheets_connection()
         sh = client.open("Cheltenham_v2")
         sheet = sh.worksheet("rEntrants")
         data = sheet.get_all_values()
-        # Create dict: { "Name": "PIN" } - skipping header row
-        return {row[0]: str(row[2]) for row in data[1:] if len(row) >= 3}
-    except:
-        return {}
+        
+        current_year = str(datetime.datetime.now().year) # "2026"
+        valid_users = {}
+        
+        # Start from row 1 to skip header
+        for row in data[1:]:
+            if len(row) >= 4: # Ensure the row has a timestamp
+                name = row[0]
+                pin = str(row[2])
+                timestamp = row[3]
+                
+                # Check if the year string (e.g., "2026") is in the timestamp string
+                if current_year in timestamp:
+                    valid_users[name] = pin
+                    
+        return valid_users
+    except Exception as e:
+        # Fallback to empty if sheet is missing or malformed
+        return {}    
+
+
+
+
 
 @st.cache_data(ttl=600)
 def load_runners_from_sheet():
