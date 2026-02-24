@@ -182,13 +182,13 @@ for i, day in enumerate(tab_list[1:], start=1):
                         st.selectbox(f"Pick {rid}", options=runners_dict.get(rid, ["-- No Runners --"]), label_visibility="collapsed", key=f"pick_{rid}")
 
         # Daily NAP
-        st.markdown(f'<div class="race-card" style="border-left: 5px solid #e71312; margin-top: 15px;"><b>🌟 {day.upper()} DAILY NAP</b></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="race-card" style="border-left: 5px solid #e71312; margin-top: 15px;"><b>🌟 {day.upper()} EW Bonus</b></div>', unsafe_allow_html=True)
         all_runners = []
         for r_num in range(1, 8):
             rid_key = f"{day_code_map[day]}r{r_num}"
             if rid_key in runners_dict:
                 all_runners.extend(runners_dict[rid_key][1:])
-        st.selectbox(f"NAP {day}", options=["-- Select Daily NAP --"] + sorted(list(set(all_runners))), label_visibility="collapsed", key=f"nap_{day}")
+        st.selectbox(f"NAP {day}", options=["-- Select EW Bonus --"] + sorted(list(set(all_runners))), label_visibility="collapsed", key=f"nap_{day}")
 
         # Day Submission
         if st.button(f"SUBMIT {day.upper()} TIPS", key=f"btn_{day}"):
