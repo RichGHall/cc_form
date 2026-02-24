@@ -63,18 +63,29 @@ def load_race_config():
 
 # --- 2. VALIDATION HELPER ---
 def is_race_open(race_id, config_df):
-    """Checks if current time is before the race start time (HH:MM)."""
     try:
-        race_info = config_df[config_df['Race_ID'] == race_id]
-        if race_info.empty: return True
-        start_str = race_info.iloc[0]['Start_Time']
+        # Find the row where your 'ID' column matches the race (e.g., d1r1)
+        race_info = config_df[config_df['ID'] == race_id]
+        if race_info.empty:
+            return True # Open by default if not found
+        
+        # Get the 'Start Time' string from your sheet (e.g., "13:30")
+        start_str = str(race_info.iloc[0]['Start_Time']).strip()
+        
+        # Current time
         now = datetime.datetime.now()
+        
+        # Convert "13:30" string to a datetime object for TODAY
+        # This assumes your sheet uses 24-hour format
         start_time = datetime.datetime.strptime(start_str, "%H:%M").replace(
             year=now.year, month=now.month, day=now.day
         )
+        
+        # LOGIC: Open if Now is BEFORE Start Time
         return now < start_time
-    except:
-        return False
+    except Exception as e:
+        # If there's an error parsing the time, keep it open so users can tip
+        return True
 
 # --- 3. PAGE CONFIG & STYLING ---
 st.set_page_config(page_title="Cheltenham 2026 Tipping", layout="wide")
