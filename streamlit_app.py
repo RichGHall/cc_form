@@ -46,7 +46,7 @@ def get_registered_users():
 
 
 
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=60)
 def load_runners_from_sheet():
     try:
         client = get_google_sheets_connection()
