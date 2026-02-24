@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import gspread
-import re  # For email validation
+import re
 from google.oauth2.service_account import Credentials
 
 # --- 1. GOOGLE SHEETS CONNECTION ---
@@ -54,7 +54,13 @@ st.markdown("""
     .stTabs [data-baseweb="tab-list"] { background-color: #00277c; padding: 8px 8px 0px 8px; border-radius: 5px 5px 0px 0px; }
     .stTabs [data-baseweb="tab"] { color: white !important; font-weight: bold; }
     .stTabs [aria-selected="true"] { background-color: #f0f2f5 !important; color: #00277c !important; border-bottom: 4px solid #e71312 !important; }
-    div.stButton > button:first-child { background-color: #e71312; color: white; border: none; padding: 15px 30px; font-size: 20px; font-weight: bold; width: 100%; border-radius: 8px; }
+    
+    /* Submit Button Styling */
+    div.stButton > button {
+        background-color: #e71312; color: white; border: none; padding: 12px;
+        font-size: 18px; font-weight: bold; width: 100%; border-radius: 8px; margin-top: 10px;
+    }
+    div.stButton > button:hover { background-color: #c41010; color: white; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -67,29 +73,26 @@ day_code_map = {"Tuesday": "d1", "Wednesday": "d2", "Thursday": "d3", "Friday": 
 st.markdown('<div class="main-header"><h1>🏇 CHELTENHAM 2026 TIPPING</h1></div>', unsafe_allow_html=True)
 
 # --- 5. TABS ---
-# Adding the new 'Entry Form' tab as the first tab
 tab_list = ["Entry Form", "Tuesday", "Wednesday", "Thursday", "Friday"]
 tabs = st.tabs(tab_list)
 
-# --- TAB 0: ENTRY FORM ---
+# GLOBAL FORM DATA (Available across all tabs)
 with tabs[0]:
-    st.subheader("📋 Player Details")
-    st.info("All fields below are mandatory to enter the competition.")
-    
-    player_name = st.text_input("Full Name *", placeholder="e.g., John Smith", key="user_name")
-    player_email = st.text_input("Email Address *", placeholder="e.g., john@example.com", key="user_email")
-    
-    # PIN Validation: Number input between 1000 and 9999 forces 4 digits and no leading zero
-    player_pin = st.number_input("4-Digit PIN (Cannot start with 0) *", 
-                                 min_value=1000, max_value=9999, step=1, value=None, 
-                                 placeholder="Enter PIN", key="user_pin")
+    st.subheader("📋 Step 1: Your Details")
+    st.info("Fill this out first, then head to the day's tab to submit your picks.")
+    p_name = st.text_input("Full Name *", key="global_name")
+    p_email = st.text_input("Email Address *", key="global_email")
+    p_pin = st.number_input("4-Digit PIN *", min_value=1000, max_value=9999, step=1, value=None, key="global_pin")
 
-# --- TABS 1-4: RACE DAYS ---
+# --- DAY TABS ---
 for i, day in enumerate(tab_list[1:], start=1):
     with tabs[i]:
+        st.subheader(f"📅 {day} Picks")
+        
         day_races = df_races[df_races['DAY'] == day].sort_values('RACE_NUMBER')
         r_list = day_races.to_dict('records')
 
+        # Race Grid
         for j in range(0, len(r_list), 2):
             cols = st.columns(2)
             for k in range(2):
@@ -97,11 +100,11 @@ for i, day in enumerate(tab_list[1:], start=1):
                     race = r_list[j + k]
                     rid = f"{day_code_map[day]}r{race['RACE_NUMBER']}"
                     with cols[k]:
-                        st.markdown(f'<div class="race-card"><span style="color: #e71312; font-weight: bold;">Race {race["RACE_NUMBER"]}</span><br><b>{race["RACE_NAME"]}</b></div>', unsafe_allow_html=True)
+                        st.markdown(f'<div class="race-card"><b>Race {race["RACE_NUMBER"]}</b><br>{race["RACE_NAME"]}</div>', unsafe_allow_html=True)
                         st.selectbox(f"Pick {rid}", options=runners_dict.get(rid, ["-- No Runners --"]), label_visibility="collapsed", key=f"pick_{rid}")
 
         # Daily NAP
-        st.markdown(f'<div class="race-card" style="border-left: 5px solid #e71312; margin-top: 25px;"><b>🌟 {day.upper()} DAILY NAP</b></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="race-card" style="border-left: 5px solid #e71312; margin-top: 15px;"><b>🌟 {day.upper()} DAILY NAP</b></div>', unsafe_allow_html=True)
         all_runners = []
         for r_num in range(1, 8):
             rid_key = f"{day_code_map[day]}r{r_num}"
@@ -109,33 +112,41 @@ for i, day in enumerate(tab_list[1:], start=1):
                 all_runners.extend(runners_dict[rid_key][1:])
         st.selectbox(f"NAP {day}", options=["-- Select Daily NAP --"] + sorted(list(set(all_runners))), label_visibility="collapsed", key=f"nap_{day}")
 
-# --- 6. SUBMISSION ---
-st.divider()
-if st.button("SUBMIT ENTRIES"):
-    # Mandatory Field Logic
-    email_regex = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
-    
-    if not player_name or not player_email or player_pin is None:
-        st.error("Submission failed: Please complete all fields in the 'Entry Form' tab.")
-    elif not re.match(email_regex, player_email):
-        st.error("Submission failed: Please enter a valid email address.")
-    else:
-        try:
-            client = get_google_sheets_connection()
-            sheet = client.open("Cheltenham_v2").worksheet("Submissions")
+        # --- INDIVIDUAL SUBMIT BUTTON PER DAY ---
+        st.write("---")
+        if st.button(f"SUBMIT {day.upper()} ENTRIES", key=f"btn_{day}"):
+            email_regex = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
             
-            # Row data: [Name, Email, PIN, d1r1...d4r7, NAP1, NAP2, NAP3, NAP4]
-            submission_row = [player_name, player_email, player_pin]
-            
-            for d_code in ["d1", "d2", "d3", "d4"]:
-                for r_idx in range(1, 8):
-                    submission_row.append(st.session_state.get(f"pick_{d_code}r{r_idx}", ""))
-            
-            for d_name in ["Tuesday", "Wednesday", "Thursday", "Friday"]:
-                submission_row.append(st.session_state.get(f"nap_{d_name}", ""))
-
-            sheet.append_row(submission_row)
-            st.balloons()
-            st.success(f"Success! Good luck, {player_name}!")
-        except Exception as e:
-            st.error(f"Error: {e}")
+            # Validation
+            if not p_name or not p_email or p_pin is None:
+                st.error("Error: Please complete your details in the 'Entry Form' tab first.")
+            elif not re.match(email_regex, p_email):
+                st.error("Error: Invalid email format.")
+            else:
+                try:
+                    client = get_google_sheets_connection()
+                    sh = client.open("Cheltenham_v2")
+                    
+                    # 1. Update rEntrants
+                    entrants_sheet = sh.worksheet("rEntrants")
+                    entrants_sheet.append_row([p_name, p_email, str(p_pin)])
+                    
+                    # 2. Update Submissions (Specific to this Day)
+                    tips_sheet = sh.worksheet("Submissions")
+                    
+                    # Row Format: [Name, Date/Day, Race1, Race2, Race3, Race4, Race5, Race6, Race7, NAP]
+                    d_code = day_code_map[day]
+                    daily_picks = [p_name, day] # Identity
+                    
+                    for r_idx in range(1, 8):
+                        val = st.session_state.get(f"pick_{d_code}r{r_idx}", "No Pick")
+                        daily_picks.append(val)
+                    
+                    daily_picks.append(st.session_state.get(f"nap_{day}", "No NAP"))
+                    
+                    tips_sheet.append_row(daily_picks)
+                    
+                    st.balloons()
+                    st.success(f"Success! {day} picks locked in for {p_name}.")
+                except Exception as e:
+                    st.error(f"Submission Error: {e}")
