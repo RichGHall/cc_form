@@ -59,7 +59,7 @@ def load_race_config():
         data = sh.worksheet("config_Races").get_all_values()
         return pd.DataFrame(data[1:], columns=data[0])
     except:
-        return pd.DataFrame(columns=['Race_ID', 'Race_Name', 'Start Time'])
+        return pd.DataFrame(columns=['Race_ID', 'Race_Name', 'Start_Time'])
 
 # --- 2. VALIDATION HELPER ---
 def is_race_open(race_id, config_df):
@@ -67,7 +67,7 @@ def is_race_open(race_id, config_df):
     try:
         race_info = config_df[config_df['Race_ID'] == race_id]
         if race_info.empty: return True
-        start_str = race_info.iloc[0]['Start Time']
+        start_str = race_info.iloc[0]['Start_Time']
         now = datetime.datetime.now()
         start_time = datetime.datetime.strptime(start_str, "%H:%M").replace(
             year=now.year, month=now.month, day=now.day
@@ -146,7 +146,7 @@ for i, day in enumerate(tab_list[1:], start=1):
                     rid = f"{d_code}r{curr_r}"
                     race_info = config_df[config_df['Race_ID'] == rid]
                     r_name = race_info.iloc[0]['Race_Name'] if not race_info.empty else "Race Name"
-                    start_t = race_info.iloc[0]['Start Time'] if not race_info.empty else "N/A"
+                    start_t = race_info.iloc[0]['Start_Time'] if not race_info.empty else "N/A"
                     
                     is_open = is_race_open(rid, config_df)
                     
