@@ -296,7 +296,7 @@ st.markdown("""
         border-bottom: none;
     }
     .leaderboard-row-header {
-        padding: 12px 15px; cursor: pointer; display: flex; 
+        padding: 8px 12px; cursor: pointer; display: flex; 
         align-items: center; background-color: #fafafa; 
         transition: background-color 0.2s;
     }
@@ -304,29 +304,29 @@ st.markdown("""
         background-color: #f0f2f5;
     }
     .leaderboard-position {
-        font-weight: bold; width: 50px; min-width: 50px; text-align: center;
-        color: #00277c; font-size: 1.1em;
+        font-weight: bold; width: 40px; min-width: 40px; text-align: center;
+        color: #00277c; font-size: 1em;
     }
     .leaderboard-name {
-        flex: 1; padding-left: 15px; font-weight: 500; color: #333;
+        flex: 1; padding-left: 10px; font-weight: 500; color: #333; font-size: 0.95em;
     }
     .leaderboard-stat {
-        padding: 0 15px; text-align: center; min-width: 90px;
+        padding: 0 10px; text-align: center; min-width: 80px;
     }
     .leaderboard-stat-label {
-        font-size: 0.75em; color: #999; text-transform: uppercase;
+        font-size: 0.7em; color: #999; text-transform: uppercase;
     }
     .leaderboard-stat-value {
-        font-weight: bold; color: #00277c; font-size: 0.95em;
+        font-weight: bold; color: #00277c; font-size: 0.9em;
     }
     .leaderboard-pick-count {
-        padding: 0 15px; text-align: center; min-width: 100px; font-size: 0.9em; color: #666;
+        padding: 0 10px; text-align: center; min-width: 90px; font-size: 0.85em; color: #666;
     }
     .leaderboard-expand-icon {
-        padding-left: 10px; color: #ccc; font-size: 1.2em; width: 20px;
+        padding-left: 5px; color: #ccc; font-size: 1em; width: 20px;
     }
     .leaderboard-content {
-        padding: 15px 15px 15px 65px; background-color: #fafafa;
+        padding: 10px 15px; background-color: #fafafa;
     }
     .next-race-header {
         background-color: #e71312; padding: 15px; border-radius: 8px; color: white; margin-bottom: 15px; text-align: center;
@@ -516,12 +516,9 @@ with tabs[5]:
             with col7:
                 st.markdown('<div class="leaderboard-expand-icon">▼</div>', unsafe_allow_html=True)
             
-            # Add a divider line to separate rows
-            st.markdown('<div style="margin: -15px 0 0 0; border-bottom: 1px solid #e0e0e0;"></div>', unsafe_allow_html=True)
-            
-            # Expandable section for winning picks
+            # Expandable section for winning picks (with no padding/text)
             if pick_count > 0:
-                with st.expander("View winning picks", key=expander_key):
+                with st.expander("", key=expander_key):
                     # Create a table of winning picks
                     picks_table_data = []
                     for pick in winning_picks:
