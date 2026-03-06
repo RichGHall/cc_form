@@ -128,6 +128,67 @@ def load_current_picks():
     except:
         return []
 
+@st.cache_data(ttl=30)
+def load_current_picks_full():
+    """Loads current picks from CurrentPicks sheet, Range B2:N2000 with all columns."""
+    try:
+        client = get_google_sheets_connection()
+        sh = client.open("Cheltenham_v2")
+        worksheet = sh.worksheet("CurrentPicks")
+        # Get range B2:N2000
+        data = worksheet.range('B2:N2000')
+        
+        # Parse into rows (13 columns: B-N)
+        rows_data = []
+        current_row = []
+        for idx, cell in enumerate(data):
+            current_row.append(cell.value if cell.value else "")
+            if (idx + 1) % 13 == 0:  # 13 columns (B-N)
+                rows_data.append(current_row)
+                current_row = []
+        
+        # Filter out completely empty rows
+        filtered_rows = [row for row in rows_data if any(row)]
+        
+        return filtered_rows
+    except:
+        return []
+
+def get_winning_picks_for_user(name, picks_data):
+    """
+    Extract winning picks for a specific user from CurrentPicks data.
+    Column D (index 2) = Name
+    Column F (index 4) = Race ID
+    Column G (index 5) = Horse
+    Column I (index 7) = Winnings
+    Returns list sorted by Race ID.
+    """
+    user_picks = []
+    for row in picks_data:
+        if len(row) > 7:  # Need at least up to column I (index 7)
+            row_name = row[2] if row[2] else ""
+            race_id = row[4] if row[4] else ""
+            horse = row[5] if row[5] else ""
+            winnings_str = row[7] if row[7] else "0"
+            
+            # Try to convert winnings to float
+            try:
+                winnings = float(str(winnings_str).replace("£", "").replace(",", "").strip())
+            except:
+                winnings = 0
+            
+            # Check if name matches and winnings > 0
+            if row_name.strip().lower() == name.strip().lower() and winnings > 0:
+                user_picks.append({
+                    'race_id': race_id,
+                    'horse': horse,
+                    'winnings': winnings
+                })
+    
+    # Sort by race ID
+    user_picks.sort(key=lambda x: x['race_id'])
+    return user_picks
+
 def parse_current_picks(picks_data):
     """
     Parse picks data assuming:
@@ -356,36 +417,60 @@ for i, day in enumerate(["Tuesday", "Wednesday", "Thursday", "Friday"], start=1)
                     st.error(f"Error: {e}")
 
 # --- TAB 5: CURRENT LEADERS ---
-leaders_tab_idx = 5
-with tabs[leaders_tab_idx]:
+with tabs[5]:
     st.subheader("🏆 Current Leaders")
     st.divider()
     
     leaders_df = load_leaders()
+    current_picks_full = load_current_picks_full()
     
     if leaders_df.empty:
         st.info("No leaderboard data available yet.")
     else:
         st.markdown('<div class="leaderboard-table">', unsafe_allow_html=True)
-        # Display as a formatted table
-        st.dataframe(
-            leaders_df,
-            use_container_width=True,
-            hide_index=True,
-            column_config={
-                "Position": st.column_config.TextColumn("Position", width="small"),
-                "Name": st.column_config.TextColumn("Name", width="medium"),
-                "Wins": st.column_config.TextColumn("Wins", width="small"),
-                "Placed": st.column_config.TextColumn("Placed", width="small"),
-                "Total_Winnings": st.column_config.TextColumn("Total Winnings", width="medium"),
-            }
-        )
+        
+        # Display each leader with expandable section
+        for idx, row in leaders_df.iterrows():
+            position = row['Position']
+            name = row['Name']
+            wins = row['Wins']
+            placed = row['Placed']
+            total_winnings = row['Total_Winnings']
+            
+            # Get winning picks for this user
+            winning_picks = get_winning_picks_for_user(name, current_picks_full)
+            
+            # Create expander with leader info
+            with st.expander(f"#{position} {name} | Wins: {wins} | Placed: {placed} | Winnings: {total_winnings} ({len(winning_picks)} winning picks)"):
+                if winning_picks:
+                    # Create a table of winning picks
+                    picks_table_data = []
+                    for pick in winning_picks:
+                        picks_table_data.append({
+                            'Race ID': pick['race_id'],
+                            'Horse': pick['horse'],
+                            'Winnings': f"£{pick['winnings']:.2f}"
+                        })
+                    
+                    picks_df = pd.DataFrame(picks_table_data)
+                    st.dataframe(
+                        picks_df,
+                        use_container_width=True,
+                        hide_index=True,
+                        column_config={
+                            "Race ID": st.column_config.TextColumn("Race ID", width="small"),
+                            "Horse": st.column_config.TextColumn("Horse", width="medium"),
+                            "Winnings": st.column_config.TextColumn("Winnings", width="small"),
+                        }
+                    )
+                else:
+                    st.info("No winning picks yet.")
+        
         st.markdown('</div>', unsafe_allow_html=True)
 
 # --- TAB 6: NEXT RACE (Only if after 13:20) ---
-if is_after_1320():
-    next_race_tab_idx = 6
-    with tabs[next_race_tab_idx]:
+if has_next_race:
+    with tabs[6]:
         st.subheader("🏁 Next Race Overview")
         st.divider()
         
