@@ -477,6 +477,10 @@ with tabs[5]:
     st.subheader(f"🏆 Current Leaders as at {timestamp}")
     st.divider()
     
+    # Add toggle for viewing picks
+    show_picks = st.toggle("View Picks", value=False, key="leader_toggle_picks")
+    st.divider()
+    
     if leaders_df.empty:
         st.info("No leaderboard data available yet.")
     else:
@@ -514,10 +518,13 @@ with tabs[5]:
             with col6:
                 st.markdown(f'<div class="leaderboard-pick-count">{pick_count} winning picks</div>', unsafe_allow_html=True)
             with col7:
-                st.markdown('<div class="leaderboard-expand-icon">▼</div>', unsafe_allow_html=True)
+                if show_picks and pick_count > 0:
+                    st.markdown('<div class="leaderboard-expand-icon">▼</div>', unsafe_allow_html=True)
+                else:
+                    st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
             
-            # Expandable section for winning picks (with no padding/text)
-            if pick_count > 0:
+            # Expandable section for winning picks (only if toggle is on)
+            if show_picks and pick_count > 0:
                 with st.expander("", key=expander_key):
                     # Create a table of winning picks
                     picks_table_data = []
