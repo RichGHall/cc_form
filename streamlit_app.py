@@ -239,9 +239,12 @@ st.markdown('<div class="main-header"><h1>🏇 CHELTENHAM 2026 TIPPING</h1></div
 # --- 5. TABS ---
 tab_list = ["New Registration", "Tuesday", "Wednesday", "Thursday", "Friday", "Current Leaders"]
 
+# Track if Next Race tab exists
+has_next_race = is_after_1320()
+
 # Add "Next Race" tab only if after 13:20
-if is_after_1320():
-    tab_list.insert(6, "Next Race")
+if has_next_race:
+    tab_list.append("Next Race")
 
 tabs = st.tabs(tab_list)
 
@@ -261,7 +264,7 @@ with tabs[0]:
                 st.cache_data.clear()
 
 # --- TABS 1-4: RACE DAYS ---
-for i, day in enumerate(tab_list[1:6], start=1):  # Only first 5 racing tabs
+for i, day in enumerate(["Tuesday", "Wednesday", "Thursday", "Friday"], start=1):
     with tabs[i]:
         st.subheader(f"📅 {day} Tips")
         
