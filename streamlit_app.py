@@ -487,25 +487,6 @@ with tabs[5]:
         # Use a container to hold the table-like structure
         st.markdown('<div class="leaderboard-table">', unsafe_allow_html=True)
         
-        # Display header row
-        col1, col2, col3, col4, col5, col6, col7 = st.columns([0.8, 2, 1.2, 1.2, 1.5, 1.2, 0.5])
-        with col1:
-            st.markdown('<div class="leaderboard-position" style="font-size: 0.8em; color: #999; text-transform: uppercase;">Pos</div>', unsafe_allow_html=True)
-        with col2:
-            st.markdown('<div class="leaderboard-name" style="font-size: 0.8em; color: #999; text-transform: uppercase;">Name</div>', unsafe_allow_html=True)
-        with col3:
-            st.markdown('<div class="leaderboard-stat" style="font-size: 0.8em; color: #999; text-transform: uppercase;">Wins</div>', unsafe_allow_html=True)
-        with col4:
-            st.markdown('<div class="leaderboard-stat" style="font-size: 0.8em; color: #999; text-transform: uppercase;">Placed</div>', unsafe_allow_html=True)
-        with col5:
-            st.markdown('<div class="leaderboard-stat" style="font-size: 0.8em; color: #999; text-transform: uppercase;">Winnings</div>', unsafe_allow_html=True)
-        with col6:
-            st.markdown('<div class="leaderboard-pick-count" style="font-size: 0.8em; color: #999; text-transform: uppercase;">Picks</div>', unsafe_allow_html=True)
-        with col7:
-            st.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True)
-        
-        st.markdown('<div style="border-bottom: 2px solid #e0e0e0; margin: 5px 0;"></div>', unsafe_allow_html=True)
-        
         # Display each leader as a table row
         for idx, row in leaders_df.iterrows():
             position = row['Position']
@@ -521,21 +502,21 @@ with tabs[5]:
             # Create unique key for expander
             expander_key = f"leader_{idx}_{name}"
             
-            # Create row header that looks like a table row (no labels)
-            col1, col2, col3, col4, col5, col6, col7 = st.columns([0.8, 2, 1.2, 1.2, 1.5, 1.2, 0.5])
+            # Create row with narrower columns for mobile - optimized widths
+            col1, col2, col3, col4, col5, col6, col7 = st.columns([0.5, 1.8, 0.8, 0.8, 0.9, 0.9, 0.3])
             
             with col1:
                 st.markdown(f'<div class="leaderboard-position">{position}</div>', unsafe_allow_html=True)
             with col2:
                 st.markdown(f'<div class="leaderboard-name">{name}</div>', unsafe_allow_html=True)
             with col3:
-                st.markdown(f'<div class="leaderboard-stat"><div class="leaderboard-stat-value">{wins}</div></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="leaderboard-stat"><div class="leaderboard-stat-value" style="font-size: 0.9em;">{wins}</div></div>', unsafe_allow_html=True)
             with col4:
-                st.markdown(f'<div class="leaderboard-stat"><div class="leaderboard-stat-value">{placed}</div></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="leaderboard-stat"><div class="leaderboard-stat-value" style="font-size: 0.9em;">{placed}</div></div>', unsafe_allow_html=True)
             with col5:
-                st.markdown(f'<div class="leaderboard-stat"><div class="leaderboard-stat-value">{total_winnings}</div></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="leaderboard-stat"><div class="leaderboard-stat-value" style="font-size: 0.8em;">{total_winnings}</div></div>', unsafe_allow_html=True)
             with col6:
-                st.markdown(f'<div class="leaderboard-pick-count">{pick_count}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="leaderboard-pick-count" style="font-size: 0.85em;">{pick_count}</div>', unsafe_allow_html=True)
             with col7:
                 if show_picks and pick_count > 0:
                     st.markdown('<div class="leaderboard-expand-icon">▼</div>', unsafe_allow_html=True)
