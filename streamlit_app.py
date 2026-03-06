@@ -103,6 +103,18 @@ def get_next_race_id():
         return None
 
 @st.cache_data(ttl=30)
+def get_leaderboard_timestamp():
+    """Loads timestamp from Next_Race sheet, Cell E2."""
+    try:
+        client = get_google_sheets_connection()
+        sh = client.open("Cheltenham_v2")
+        worksheet = sh.worksheet("Next_Race")
+        timestamp = worksheet.cell(2, 5).value  # Row 2, Column E (5)
+        return str(timestamp) if timestamp else "N/A"
+    except:
+        return "N/A"
+
+@st.cache_data(ttl=30)
 def load_current_picks():
     """Loads current picks from CurrentPicks sheet, Range C2:N5000."""
     try:
@@ -274,7 +286,47 @@ st.markdown("""
         background-color: #e71312; color: white; border-radius: 8px; font-weight: bold; width: 100%; height: 3em;
     }
     .leaderboard-table {
-        background-color: white; border-radius: 8px; padding: 15px; box-shadow: 0px 2px 4px rgba(0,0,0,0.05);
+        background-color: white; border-radius: 8px; overflow: hidden; 
+        box-shadow: 0px 2px 4px rgba(0,0,0,0.05);
+    }
+    .leaderboard-row {
+        border-bottom: 1px solid #e0e0e0;
+    }
+    .leaderboard-row:last-child {
+        border-bottom: none;
+    }
+    .leaderboard-row-header {
+        padding: 12px 15px; cursor: pointer; display: flex; 
+        align-items: center; background-color: #fafafa; 
+        transition: background-color 0.2s;
+    }
+    .leaderboard-row-header:hover {
+        background-color: #f0f2f5;
+    }
+    .leaderboard-position {
+        font-weight: bold; width: 50px; min-width: 50px; text-align: center;
+        color: #00277c; font-size: 1.1em;
+    }
+    .leaderboard-name {
+        flex: 1; padding-left: 15px; font-weight: 500; color: #333;
+    }
+    .leaderboard-stat {
+        padding: 0 15px; text-align: center; min-width: 90px;
+    }
+    .leaderboard-stat-label {
+        font-size: 0.75em; color: #999; text-transform: uppercase;
+    }
+    .leaderboard-stat-value {
+        font-weight: bold; color: #00277c; font-size: 0.95em;
+    }
+    .leaderboard-pick-count {
+        padding: 0 15px; text-align: center; min-width: 100px; font-size: 0.9em; color: #666;
+    }
+    .leaderboard-expand-icon {
+        padding-left: 10px; color: #ccc; font-size: 1.2em; width: 20px;
+    }
+    .leaderboard-content {
+        padding: 15px 15px 15px 65px; background-color: #fafafa;
     }
     .next-race-header {
         background-color: #e71312; padding: 15px; border-radius: 8px; color: white; margin-bottom: 15px; text-align: center;
@@ -418,18 +470,20 @@ for i, day in enumerate(["Tuesday", "Wednesday", "Thursday", "Friday"], start=1)
 
 # --- TAB 5: CURRENT LEADERS ---
 with tabs[5]:
-    st.subheader("🏆 Current Leaders")
-    st.divider()
-    
     leaders_df = load_leaders()
     current_picks_full = load_current_picks_full()
+    timestamp = get_leaderboard_timestamp()
+    
+    st.subheader(f"🏆 Current Leaders as at {timestamp}")
+    st.divider()
     
     if leaders_df.empty:
         st.info("No leaderboard data available yet.")
     else:
+        # Use a container to hold the table-like structure
         st.markdown('<div class="leaderboard-table">', unsafe_allow_html=True)
         
-        # Display each leader with expandable section
+        # Display each leader as a table row
         for idx, row in leaders_df.iterrows():
             position = row['Position']
             name = row['Name']
@@ -439,10 +493,35 @@ with tabs[5]:
             
             # Get winning picks for this user
             winning_picks = get_winning_picks_for_user(name, current_picks_full)
+            pick_count = len(winning_picks)
             
-            # Create expander with leader info
-            with st.expander(f"#{position} {name} | Wins: {wins} | Placed: {placed} | Winnings: {total_winnings} ({len(winning_picks)} winning picks)"):
-                if winning_picks:
+            # Create unique key for expander
+            expander_key = f"leader_{idx}_{name}"
+            
+            # Create row header that looks like a table row
+            col1, col2, col3, col4, col5, col6, col7 = st.columns([0.8, 2, 1.2, 1.2, 1.5, 1.2, 0.5])
+            
+            with col1:
+                st.markdown(f'<div class="leaderboard-position">{position}</div>', unsafe_allow_html=True)
+            with col2:
+                st.markdown(f'<div class="leaderboard-name">{name}</div>', unsafe_allow_html=True)
+            with col3:
+                st.markdown(f'<div class="leaderboard-stat"><div class="leaderboard-stat-label">Wins</div><div class="leaderboard-stat-value">{wins}</div></div>', unsafe_allow_html=True)
+            with col4:
+                st.markdown(f'<div class="leaderboard-stat"><div class="leaderboard-stat-label">Placed</div><div class="leaderboard-stat-value">{placed}</div></div>', unsafe_allow_html=True)
+            with col5:
+                st.markdown(f'<div class="leaderboard-stat"><div class="leaderboard-stat-label">Winnings</div><div class="leaderboard-stat-value">{total_winnings}</div></div>', unsafe_allow_html=True)
+            with col6:
+                st.markdown(f'<div class="leaderboard-pick-count">{pick_count} winning picks</div>', unsafe_allow_html=True)
+            with col7:
+                st.markdown('<div class="leaderboard-expand-icon">▼</div>', unsafe_allow_html=True)
+            
+            # Add a divider line to separate rows
+            st.markdown('<div style="margin: -15px 0 0 0; border-bottom: 1px solid #e0e0e0;"></div>', unsafe_allow_html=True)
+            
+            # Expandable section for winning picks
+            if pick_count > 0:
+                with st.expander("View winning picks", key=expander_key):
                     # Create a table of winning picks
                     picks_table_data = []
                     for pick in winning_picks:
@@ -463,8 +542,6 @@ with tabs[5]:
                             "Winnings": st.column_config.TextColumn("Winnings", width="small"),
                         }
                     )
-                else:
-                    st.info("No winning picks yet.")
         
         st.markdown('</div>', unsafe_allow_html=True)
 
